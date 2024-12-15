@@ -1,4 +1,5 @@
-module product-management-system
+module github.com/Ujjwal-Bodkhe/product-management-system
+
 
 go 1.23.4
 
