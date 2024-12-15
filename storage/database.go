@@ -1,61 +1,38 @@
 package storage
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
+	"github.com/Ujjwal-Bodkhe/product-management-system/models"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 type DB struct {
-	conn *sql.DB
+	*sqlx.DB
 }
 
-func InitDB() (*DB, error) {
-	connStr := "postgres://username:password@localhost/dbname?sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+func NewDB(dataSourceName string) *DB {
+	db, err := sqlx.Connect("postgres", dataSourceName)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return &DB{conn: db}, nil
+	return &DB{db}
 }
 
-func (db *DB) SaveProduct(product *Product) error {
-	// Database logic to save product
-	query := "INSERT INTO products (user_id, product_name, product_description, product_images, product_price) VALUES ($1, $2, $3, $4, $5)"
-	_, err := db.conn.Exec(query, product.UserID, product.ProductName, product.ProductDescription, product.ProductImages, product.ProductPrice)
+func (db *DB) SaveProduct(product *models.Product) error {
+	_, err := db.Exec(`INSERT INTO products (user_id, product_name, product_description, product_price, product_images, compressed_images, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`, 
+		product.UserID, product.ProductName, product.ProductDescription, product.ProductPrice, product.ProductImages, product.CompressedImages)
 	return err
 }
 
-func (db *DB) GetProductByID(id string) (*Product, error) {
-	// Database logic to get product by ID
-	query := "SELECT * FROM products WHERE id = $1"
-	row := db.conn.QueryRow(query, id)
-	var product Product
-	err := row.Scan(&product.ID, &product.UserID, &product.ProductName, &product.ProductDescription, &product.ProductImages, &product.ProductPrice)
-	if err != nil {
-		return nil, err
-	}
-	return &product, nil
+func (db *DB) GetProductByID(id string) (*models.Product, error) {
+	var product models.Product
+	err := db.Get(&product, "SELECT * FROM products WHERE id = $1", id)
+	return &product, err
 }
 
-func (db *DB) GetProductsByUser(userID string) ([]Product, error) {
-	// Database logic to fetch products by user
-	query := "SELECT * FROM products WHERE user_id = $1"
-	rows, err := db.conn.Query(query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var products []Product
-	for rows.Next() {
-		var product Product
-		err := rows.Scan(&product.ID, &product.UserID, &product.ProductName, &product.ProductDescription, &product.ProductImages, &product.ProductPrice)
-		if err != nil {
-			log.Fatal(err)
-		}
-		products = append(products, product)
-	}
-	return products, nil
+func (db *DB) GetProductsByUser(userID string) ([]models.Product, error) {
+	var products []models.Product
+	err := db.Select(&products, "SELECT * FROM products WHERE user_id = $1", userID)
+	return products, err
 }

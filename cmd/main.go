@@ -1,51 +1,32 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os"
-
-	"github.com/gin-gonic/gin"
-	"github.com/yourusername/product-management-system/api"
-	"github.com/yourusername/product-management-system/cache"
-	"github.com/yourusername/product-management-system/service"
-	"github.com/yourusername/product-management-system/storage"
-	"github.com/yourusername/product-management-system/queue"
-	"github.com/yourusername/product-management-system/logs"
+	"net/http"
+	"github.com/Ujjwal-Bodkhe/product-management-system/service"
+	"github.com/Ujjwal-Bodkhe/product-management-system/handler"
+	"github.com/Ujjwal-Bodkhe/product-management-system/storage"
+	"github.com/Ujjwal-Bodkhe/product-management-system/cache"
+	"github.com/Ujjwal-Bodkhe/product-management-system/queue"
+	"github.com/Ujjwal-Bodkhe/product-management-system/routes"
 )
 
 func main() {
-	// Initialize logger
-	logger := logs.InitLogger()
+	// Initialize database connection, Redis client, and message queue
+	db := storage.NewDB("postgres://user:pass@localhost/dbname")
+	redisClient := cache.NewRedisClient("localhost:6379")
+	messageQueue := queue.NewMessageQueue("localhost:5672")
 
-	// Initialize database connection
-	db, err := storage.InitDB()
-	if err != nil {
-		logger.Fatal("failed to connect to database", err)
-		os.Exit(1)
-	}
-
-	// Initialize Redis
-	redisClient := cache.InitRedis()
-
-	// Initialize message queue (RabbitMQ/Kafka)
-	messageQueue, err := queue.InitQueue()
-	if err != nil {
-		logger.Fatal("failed to connect to message queue", err)
-		os.Exit(1)
-	}
-
-	// Initialize product service
+	// Initialize services
 	productService := service.NewProductService(db, redisClient, messageQueue)
 
-	// Create Gin router
-	router := gin.Default()
+	// Initialize handlers
+	productHandler := handler.NewProductHandler(productService)
 
-	// Setup routes
-	api.SetupRoutes(router, productService)
+	// Set up routes
+	router := routes.NewRouter(productHandler)
 
-	// Start server
-	if err := router.Run(":8080"); err != nil {
-		logger.Fatal("failed to start server", err)
-	}
+	// Start the server
+	log.Println("Server running on port 8080")
+	log.Fatal(http.ListenAndServe(":8080", router))
 }

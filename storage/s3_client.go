@@ -1,42 +1,36 @@
 package storage
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/yourusername/product-management-system/config"
 	"log"
 )
 
-func UploadToS3(fileName string, fileData []byte) (string, error) {
-	// Load config
-	cfg := config.LoadConfig()
+type S3Client struct {
+	s3Client *s3.S3
+	bucket   string
+}
 
-	// Initialize an S3 session
+func NewS3Client(region, bucket string) *S3Client {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
-		Credentials: aws.NewStaticCredentials(cfg.AWSAccessKey, cfg.AWSSecretKey, ""),
+		Region: aws.String(region),
 	})
 	if err != nil {
-		log.Fatal("Failed to create session:", err)
-		return "", err
+		log.Fatal("Unable to initialize AWS session: ", err)
 	}
+	return &S3Client{
+		s3Client: s3.New(sess),
+		bucket:   bucket,
+	}
+}
 
-	s3Client := s3.New(sess)
-
-	// Upload the file
-	_, err = s3Client.PutObject(&s3.PutObjectInput{
-		Bucket: aws.String(cfg.AWSBucketName),
-		Key:    aws.String(fileName),
-		Body:   bytes.NewReader(fileData),
+func (s *S3Client) UploadImage(key string, filePath string) error {
+	// Upload the image to S3
+	_, err := s.s3Client.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+		Body:   aws.String(filePath),
 	})
-	if err != nil {
-		log.Fatal("Failed to upload to S3:", err)
-		return "", err
-	}
-
-	fileURL := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", cfg.AWSBucketName, fileName)
-	return fileURL, nil
+	return err
 }

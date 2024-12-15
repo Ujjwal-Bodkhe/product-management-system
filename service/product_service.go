@@ -2,9 +2,10 @@ package service
 
 import (
 	"errors"
-	"github.com/yourusername/product-management-system/storage"
-	"github.com/yourusername/product-management-system/cache"
-	"github.com/yourusername/product-management-system/queue"
+	"github.com/Ujjwal-Bodkhe/product-management-system/models"
+	"github.com/Ujjwal-Bodkhe/product-management-system/storage"
+	"github.com/Ujjwal-Bodkhe/product-management-system/cache"
+	"github.com/Ujjwal-Bodkhe/product-management-system/queue"
 )
 
 type ProductService struct {
@@ -17,27 +18,26 @@ func NewProductService(db *storage.DB, redisClient *cache.RedisClient, messageQu
 	return &ProductService{db, redisClient, messageQueue}
 }
 
-func (s *ProductService) CreateProduct(product *Product) error {
-	// Save product to DB
+func (s *ProductService) CreateProduct(product *models.Product) error {
 	err := s.db.SaveProduct(product)
 	if err != nil {
 		return err
 	}
 
-	// Push image URLs to the processing queue
+	// Push image URLs to the queue for processing
 	s.messageQueue.PushImageURLs(product.ProductImages)
 
 	return nil
 }
 
-func (s *ProductService) GetProductByID(id string) (*Product, error) {
+func (s *ProductService) GetProductByID(id string) (*models.Product, error) {
 	// Check cache first
 	product, found := s.redisClient.Get(id)
 	if found {
-		return product, nil
+		return product.(*models.Product), nil
 	}
 
-	// If not in cache, fetch from DB
+	// Fetch from DB if not found in cache
 	product, err := s.db.GetProductByID(id)
 	if err != nil {
 		return nil, errors.New("product not found")
@@ -49,8 +49,7 @@ func (s *ProductService) GetProductByID(id string) (*Product, error) {
 	return product, nil
 }
 
-func (s *ProductService) GetProductsByUser(userID string) ([]Product, error) {
-	// Fetch products for a specific user
+func (s *ProductService) GetProductsByUser(userID string) ([]models.Product, error) {
 	products, err := s.db.GetProductsByUser(userID)
 	if err != nil {
 		return nil, err

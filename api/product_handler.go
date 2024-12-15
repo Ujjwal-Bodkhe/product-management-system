@@ -1,52 +1,62 @@
-package api
+package handler
 
 import (
+	"encoding/json"
 	"net/http"
-	"github.com/gin-gonic/gin"
-	"github.com/yourusername/product-management-system/service"
+	"github.com/Ujjwal-Bodkhe/product-management-system/service"
+	"github.com/Ujjwal-Bodkhe/product-management-system/models"
+	"github.com/gorilla/mux"
 )
 
-// createProductHandler handles POST requests to create a new product
-func createProductHandler(productService *service.ProductService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var product service.Product
-		if err := c.ShouldBindJSON(&product); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-			return
-		}
-
-		err := productService.CreateProduct(&product)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Product created successfully"})
-	}
+type ProductHandler struct {
+	productService *service.ProductService
 }
 
-// getProductHandler handles GET requests to retrieve a product by ID
-func getProductHandler(productService *service.ProductService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		product, err := productService.GetProductByID(id)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-			return
-		}
-		c.JSON(http.StatusOK, product)
-	}
+func NewProductHandler(productService *service.ProductService) *ProductHandler {
+	return &ProductHandler{productService}
 }
 
-// getProductsHandler handles GET requests to retrieve all products for a user
-func getProductsHandler(productService *service.ProductService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userID := c.DefaultQuery("user_id", "")
-		products, err := productService.GetProductsByUser(userID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products"})
-			return
-		}
-		c.JSON(http.StatusOK, products)
+func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+	var product models.Product
+	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	err := h.productService.CreateProduct(&product)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(product)
+}
+
+func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	product, err := h.productService.GetProductByID(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(product)
+}
+
+func (h *ProductHandler) GetProductsByUser(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["user_id"]
+
+	products, err := h.productService.GetProductsByUser(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(products)
 }

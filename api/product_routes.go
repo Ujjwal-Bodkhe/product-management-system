@@ -1,13 +1,16 @@
-package api
+package routes
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/yourusername/product-management-system/service"
+	"github.com/gorilla/mux"
+	"github.com/Ujjwal-Bodkhe/product-management-system/handler"
 )
 
-// SetupRoutes sets up the product API routes
-func SetupRoutes(router *gin.Engine, productService *service.ProductService) {
-	router.POST("/products", createProductHandler(productService))
-	router.GET("/products/:id", getProductHandler(productService))
-	router.GET("/products", getProductsHandler(productService))
+func NewRouter(productHandler *handler.ProductHandler) *mux.Router {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/products", productHandler.CreateProduct).Methods("POST")
+	router.HandleFunc("/products/{id}", productHandler.GetProductByID).Methods("GET")
+	router.HandleFunc("/products/user/{user_id}", productHandler.GetProductsByUser).Methods("GET")
+
+	return router
 }

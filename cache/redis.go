@@ -1,8 +1,11 @@
 package cache
 
 import (
+	"encoding/json"
+	"strconv"
+
+	"github.com/Ujjwal-Bodkhe/product-management-system/models"
 	"github.com/go-redis/redis/v8"
-	"context"
 )
 
 type RedisClient struct {
@@ -16,17 +19,31 @@ func InitRedis() *RedisClient {
 	return &RedisClient{client: client}
 }
 
-func (r *RedisClient) Get(key string) (*Product, bool) {
-	val, err := r.client.Get(context.Background(), key).Result()
-	if err != nil {
-		return nil, false
-	}
-	// Assuming Product is stored in JSON format
-	var product Product
-	// Unmarshal val to product
-	return &product, true
+// Set stores product data in Redis
+func (r *RedisClient) Set(id int, product *models.Product) error {
+    // Example: Convert product to JSON string or use another serialization format
+    data, err := json.Marshal(product)
+    if err != nil {
+        return err
+    }
+
+    return r.client.Set(strconv.Itoa(id), data, 0).Err()
 }
 
-func (r *RedisClient) Set(key string, product *Product) {
-	// Serialize product to JSON and set it in Redis
+// Get retrieves product data from Redis
+func (r *RedisClient) Get(id int) (interface{}, bool) {
+    // Retrieve product data from Redis
+    data, err := r.client.Get(strconv.Itoa(id)).Result()
+    if err != nil {
+        return nil, false
+    }
+
+    var product models.Product
+    err = json.Unmarshal([]byte(data), &product)
+    if err != nil {
+        return nil, false
+    }
+
+    return &product, true
 }
+
