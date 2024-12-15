@@ -1,8 +1,8 @@
 package queue
 
 import (
+	"fmt"
 	"github.com/streadway/amqp"
-	"log"
 )
 
 type MessageQueue struct {
@@ -10,34 +10,50 @@ type MessageQueue struct {
 	ch   *amqp.Channel
 }
 
-func NewMessageQueue(url string) *MessageQueue {
-	conn, err := amqp.Dial(url)
+func InitMessageQueue() *MessageQueue {
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		log.Fatal("Failed to connect to RabbitMQ:", err)
+		fmt.Println("Failed to connect to RabbitMQ:", err)
+		return nil
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatal("Failed to open a channel:", err)
+		fmt.Println("Failed to open a channel:", err)
+		return nil
 	}
 
-	return &MessageQueue{conn, ch}
+	return &MessageQueue{conn: conn, ch: ch}
 }
 
-func (mq *MessageQueue) PushImageURLs(imageURLs []string) {
+func (mq *MessageQueue) PushImageURLs(imageURLs []string) error {
+	q, err := mq.ch.QueueDeclare(
+		"image_processing_queue", // name of the queue
+		false,                    // durable
+		false,                    // delete when unused
+		false,                    // exclusive
+		false,                    // no-wait
+		nil,                      // arguments
+	)
+	if err != nil {
+		return err
+	}
+
 	for _, url := range imageURLs {
-		err := mq.ch.Publish(
-			"",        // exchange
-			"image_queue", // routing key
-			false,     // mandatory
-			false,     // immediate
+		err = mq.ch.Publish(
+			"",           // exchange
+			q.Name,       // routing key (queue name)
+			false,        // mandatory
+			false,        // immediate
 			amqp.Publishing{
 				ContentType: "text/plain",
 				Body:        []byte(url),
 			},
 		)
 		if err != nil {
-			log.Println("Failed to send message:", err)
+			return err
 		}
 	}
+
+	return nil
 }

@@ -1,11 +1,10 @@
-package routes
+package api
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/Ujjwal-Bodkhe/product-management-system/handler"
 )
 
-func NewRouter(productHandler *handler.ProductHandler) *mux.Router {
+func NewRouter(productHandler *ProductHandler) *mux.Router {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/products", productHandler.CreateProduct).Methods("POST")

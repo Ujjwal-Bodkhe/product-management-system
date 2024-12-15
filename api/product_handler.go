@@ -1,4 +1,4 @@
-package handler
+package api
 
 import (
 	"encoding/json"
@@ -9,11 +9,11 @@ import (
 )
 
 type ProductHandler struct {
-	productService *service.ProductService
+	service *service.ProductService
 }
 
-func NewProductHandler(productService *service.ProductService) *ProductHandler {
-	return &ProductHandler{productService}
+func NewProductHandler(service *service.ProductService) *ProductHandler {
+	return &ProductHandler{service: service}
 }
 
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -23,8 +23,8 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.productService.CreateProduct(&product)
-	if err != nil {
+	// Create the product using the service
+	if err := h.service.CreateProduct(&product); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -37,26 +37,26 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	product, err := h.productService.GetProductByID(id)
+	// Get the product by ID from the service
+	product, err := h.service.GetProductByID(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(product)
 }
 
 func (h *ProductHandler) GetProductsByUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["user_id"]
+	userID := vars["userID"]
 
-	products, err := h.productService.GetProductsByUser(userID)
+	// Get all products for the user
+	products, err := h.service.GetProductsByUser(userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(products)
 }

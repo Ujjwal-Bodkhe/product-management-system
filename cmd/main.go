@@ -2,31 +2,34 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"github.com/Ujjwal-Bodkhe/product-management-system/service"
-	"github.com/Ujjwal-Bodkhe/product-management-system/handler"
 	"github.com/Ujjwal-Bodkhe/product-management-system/storage"
 	"github.com/Ujjwal-Bodkhe/product-management-system/cache"
 	"github.com/Ujjwal-Bodkhe/product-management-system/queue"
-	"github.com/Ujjwal-Bodkhe/product-management-system/routes"
+	"github.com/Ujjwal-Bodkhe/product-management-system/api"
+	"github.com/gorilla/mux"
+	"net/http"
 )
 
 func main() {
-	// Initialize database connection, Redis client, and message queue
-	db := storage.NewDB("postgres://user:pass@localhost/dbname")
-	redisClient := cache.NewRedisClient("localhost:6379")
-	messageQueue := queue.NewMessageQueue("localhost:5672")
+	// Initialize components
+	db := storage.InitDB()
+	redisClient := cache.InitRedis()
+	messageQueue := queue.InitMessageQueue()
 
-	// Initialize services
+	// Initialize ProductService with dependencies
 	productService := service.NewProductService(db, redisClient, messageQueue)
 
-	// Initialize handlers
-	productHandler := handler.NewProductHandler(productService)
+	// Initialize the HTTP handler with the ProductService
+	productHandler := api.NewProductHandler(productService)
 
-	// Set up routes
-	router := routes.NewRouter(productHandler)
+	// Setup routes
+	router := mux.NewRouter()
+	router.HandleFunc("/products", productHandler.CreateProduct).Methods("POST")
+	router.HandleFunc("/products/{id}", productHandler.GetProductByID).Methods("GET")
+	router.HandleFunc("/products/user/{userID}", productHandler.GetProductsByUser).Methods("GET")
 
 	// Start the server
-	log.Println("Server running on port 8080")
+	log.Println("Server started on :8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
