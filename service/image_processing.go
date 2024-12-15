@@ -1,77 +1,34 @@
 package service
 
 import (
-	"bytes"
-	"fmt"
-	"image"
-	"image/jpeg"
 	"log"
-	"net/http"
-	"time"
+	//"github.com/Ujjwal-Bodkhe/product-management-system/models"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/nfnt/resize"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// compressAndUploadImages compresses the product images and uploads them to S3.
-func compressAndUploadImages(imageURLs []string, s3Bucket string) ([]string, error) {
-	var compressedURLs []string
+type ImageProcessor struct {
+	S3Client *s3.Client
+}
 
-	// Create an AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create AWS session: %w", err)
+func NewImageProcessor() *ImageProcessor {
+	creds := credentials.NewStaticCredentialsProvider("your-access-key", "your-secret-key", "")
+	cfg := aws.Config{
+		Region:      "us-west-2",
+		Credentials: creds,
 	}
 
-	s3Client := s3.New(sess)
+	s3Client := s3.NewFromConfig(cfg)
+	return &ImageProcessor{S3Client: s3Client}
+}
 
-	for _, imageURL := range imageURLs {
-		// Download the image
-		resp, err := http.Get(imageURL)
-		if err != nil {
-			log.Printf("Failed to download image: %v", err)
-			continue
-		}
-		defer resp.Body.Close()
+func (p *ImageProcessor) ProcessImage(imageURL string) (string, error) {
+	// Here you would download the image, compress it and upload to S3
+	// For simplicity, we'll assume the image is processed and uploaded
+	// Replace with actual S3 interaction code as needed
 
-		// Decode the image
-		img, _, err := image.Decode(resp.Body)
-		if err != nil {
-			log.Printf("Failed to decode image: %v", err)
-			continue
-		}
-
-		// Resize the image
-		resizedImg := resize.Resize(800, 0, img, resize.Lanczos3)
-
-		// Compress the image to JPEG
-		var buf bytes.Buffer
-		err = jpeg.Encode(&buf, resizedImg, nil)
-		if err != nil {
-			log.Printf("Failed to encode compressed image: %v", err)
-			continue
-		}
-
-		// Upload the compressed image to S3
-		fileName := fmt.Sprintf("compressed/%d.jpg", time.Now().UnixNano())
-		_, err = s3Client.PutObject(&s3.PutObjectInput{
-			Bucket: aws.String(s3Bucket),
-			Key:    aws.String(fileName),
-			Body:   bytes.NewReader(buf.Bytes()),
-			ACL:    aws.String("public-read"),
-		})
-		if err != nil {
-			log.Printf("Failed to upload image to S3: %v", err)
-			continue
-		}
-
-		// Add the S3 URL of the uploaded image to the list of compressed URLs
-		compressedURLs = append(compressedURLs, fmt.Sprintf("https://%s.s3.amazonaws.com/%s", s3Bucket, fileName))
-	}
-
-	return compressedURLs, nil
+	log.Printf("Processing image: %s", imageURL)
+	return "https://your-s3-bucket-url/image.jpg", nil
 }

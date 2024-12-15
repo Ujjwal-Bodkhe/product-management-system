@@ -1,41 +1,31 @@
 package storage
 
 import (
-	"database/sql"
-	"log"
 	"github.com/Ujjwal-Bodkhe/product-management-system/models"
-	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type DB struct {
-	*sql.DB
+	*gorm.DB
 }
 
-func InitDB() *DB {
-	// Connect to PostgreSQL database
-	connStr := "user=postgres dbname=product_manager sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+func NewDB() *DB {
+	dsn := "user=youruser password=yourpassword dbname=yourdb port=5432 sslmode=disable"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		panic("failed to connect to the database")
 	}
-
 	return &DB{db}
 }
 
 func (db *DB) SaveProduct(product *models.Product) error {
-	_, err := db.Exec(
-		"INSERT INTO products (user_id, product_name, product_description, product_images, product_price, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())",
-		product.UserID, product.ProductName, product.ProductDescription, product.ProductImages, product.ProductPrice,
-	)
-	return err
+	return db.Create(product).Error
 }
 
 func (db *DB) GetProductByID(id string) (*models.Product, error) {
 	var product models.Product
-	err := db.QueryRow(
-		"SELECT id, user_id, product_name, product_description, product_images, product_price, created_at, updated_at FROM products WHERE id = $1",
-		id,
-	).Scan(&product.ID, &product.UserID, &product.ProductName, &product.ProductDescription, &product.ProductImages, &product.ProductPrice, &product.CreatedAt, &product.UpdatedAt)
+	err := db.First(&product, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -43,23 +33,10 @@ func (db *DB) GetProductByID(id string) (*models.Product, error) {
 }
 
 func (db *DB) GetProductsByUser(userID string) ([]models.Product, error) {
-	rows, err := db.Query(
-		"SELECT id, user_id, product_name, product_description, product_images, product_price, created_at, updated_at FROM products WHERE user_id = $1",
-		userID,
-	)
+	var products []models.Product
+	err := db.Where("user_id = ?", userID).Find(&products).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var products []models.Product
-	for rows.Next() {
-		var product models.Product
-		if err := rows.Scan(&product.ID, &product.UserID, &product.ProductName, &product.ProductDescription, &product.ProductImages, &product.ProductPrice, &product.CreatedAt, &product.UpdatedAt); err != nil {
-			return nil, err
-		}
-		products = append(products, product)
-	}
-
 	return products, nil
 }

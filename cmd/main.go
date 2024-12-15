@@ -2,34 +2,39 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"github.com/gorilla/mux"
+	"github.com/Ujjwal-Bodkhe/product-management-system/cache"
+	"github.com/Ujjwal-Bodkhe/product-management-system/handlers"
+	"github.com/Ujjwal-Bodkhe/product-management-system/queue"
 	"github.com/Ujjwal-Bodkhe/product-management-system/service"
 	"github.com/Ujjwal-Bodkhe/product-management-system/storage"
-	"github.com/Ujjwal-Bodkhe/product-management-system/cache"
-	"github.com/Ujjwal-Bodkhe/product-management-system/queue"
-	"github.com/Ujjwal-Bodkhe/product-management-system/api"
-	"github.com/gorilla/mux"
-	"net/http"
 )
 
 func main() {
-	// Initialize components
-	db := storage.InitDB()
-	redisClient := cache.InitRedis()
-	messageQueue := queue.InitMessageQueue()
+	// Load environment variables
+	if err := loadEnv(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
 
-	// Initialize ProductService with dependencies
+	// Initialize components
+	db := storage.NewDB()
+	redisClient := cache.InitRedis()
+	messageQueue := queue.NewMessageQueue()
+
+	// Create product service
 	productService := service.NewProductService(db, redisClient, messageQueue)
 
-	// Initialize the HTTP handler with the ProductService
-	productHandler := api.NewProductHandler(productService)
-
-	// Setup routes
+	// Setup router and routes
 	router := mux.NewRouter()
-	router.HandleFunc("/products", productHandler.CreateProduct).Methods("POST")
-	router.HandleFunc("/products/{id}", productHandler.GetProductByID).Methods("GET")
-	router.HandleFunc("/products/user/{userID}", productHandler.GetProductsByUser).Methods("GET")
+	handlers.SetupProductRoutes(router, productService)
 
-	// Start the server
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	// Start server
+	http.Handle("/", router)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func loadEnv() error {
+	// Load environment variables from .env file
+	return nil // Placeholder, you can use a package like "github.com/joho/godotenv" to load .env file
 }
